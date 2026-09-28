@@ -20,6 +20,8 @@ output back here for diagnosis and repository-owned fixes.
 
 ## Start here
 
+- [Contributor handoff](docs/contributor-handoff.md): fresh Codex session setup,
+  outstanding integration and acceptance work, and offboarding responsibilities.
 - [Repository structure and change guide](docs/repository-guide.md): where each
   kind of change belongs and what to validate.
 - [GitOps documentation index](gitops/docs/README.md): current design,
@@ -61,11 +63,14 @@ Run focused checks while editing:
 
 ```sh
 make validate-docs
-make validate-topology
-make test-topology
-make validate-charts
+make validate-topology test-topology validate-charts \
+  OVERRIDES_ROOT="$PWD/handoff/microservices-charts-staging"
 make validate-zookeeper-kustomize
 ```
+
+The explicit staging path supports offline checks before the repository cutover.
+After cutover, pass the absolute path to the approved `microservices-charts`
+checkout. See [override cutover](gitops/docs/override-cutover.md).
 
 Operator rendering needs the approved upstream chart package when the
 workstation cannot reach the pinned public OCI source:
@@ -80,8 +85,15 @@ Release CI must use the artifact-backed gate rather than treating an offline
 
 ```sh
 ARKMQ_UPSTREAM_CHART=/path/to/arkmq-org-broker-operator.tgz \
-  make release-gate
+  make release-gate OVERRIDES_ROOT=/path/to/microservices-charts
+make -C gitops validate-revision-pairs \
+  OVERRIDES_TEST_ROOT=/path/to/test-overrides \
+  OVERRIDES_NONPROD_ROOT=/path/to/nonprod-overrides \
+  OVERRIDES_PROD_ROOT=/path/to/prod-overrides
 ```
+
+Both gates are required for promotion. Revision-pair checks require clean Git
+checkouts at the exact selected commits; the staging bundle cannot satisfy them.
 
 ## Performance validation
 
@@ -108,7 +120,7 @@ unless all context, cluster, and namespace confirmations are supplied. Review
 ## Validate the repository
 
 ```sh
-make validate
+make validate OVERRIDES_ROOT="$PWD/handoff/microservices-charts-staging"
 ```
 
 This runs documentation checks, cross-area invariants, GitOps and Helm checks,

@@ -1,6 +1,7 @@
 SHELL := /bin/sh
 
 REPORT_DIR ?= reports
+OVERRIDES_ROOT ?=
 
 .PHONY: help versions prepare-upgrade validate-release validate-toolchain release-gate test-upgrade-workflow test-chef-import test test-topology test-zookeeper-rollout-preflight test-diagnose-pod-startup test-argocd-ecr-credentials package validate validate-docs validate-static validate-scenarios validate-topology validate-charts validate-zookeeper-kustomize validate-operator-kustomize validate-operator-schema validate-compose local-up local-down local-reset local-logs local-status local-smoke performance-local performance-deployed performance-tunneled failure-deployed failure-tunneled build-image
 
@@ -44,7 +45,7 @@ help:
 		'  build-image       Build the version-tagged validation client image' \
 		'' \
 		'Repository:' \
-		'  validate          Run the complete validation suite' \
+		'  validate          Run the complete validation suite (OVERRIDES_ROOT required)' \
 		'  validate-docs     Check local documentation links and the GitOps catalog' \
 		'  validate-static   Check cross-area repository invariants' \
 		'  validate-compose  Validate the local Compose configuration'
@@ -139,7 +140,7 @@ validate-toolchain:
 release-gate:
 	@test -f "$(ARKMQ_UPSTREAM_CHART)" || { printf '%s\n' 'ARKMQ_UPSTREAM_CHART must name the approved chart .tgz' >&2; exit 2; }
 	$(MAKE) validate-toolchain
-	ARTEMIS_RELEASE_GATE=true ARKMQ_UPSTREAM_CHART="$(ARKMQ_UPSTREAM_CHART)" REPORT_DIR="$(REPORT_DIR)" ./scripts/validate-repository.sh
+	ARTEMIS_RELEASE_GATE=true ARKMQ_UPSTREAM_CHART="$(ARKMQ_UPSTREAM_CHART)" REPORT_DIR="$(REPORT_DIR)" ./scripts/validate-repository.sh --overrides-root "$(OVERRIDES_ROOT)"
 
 test-upgrade-workflow:
 	$(MAKE) -C gitops test-upgrade-workflow
@@ -154,4 +155,4 @@ validate-docs:
 	./scripts/validate-docs.sh
 
 validate:
-	REPORT_DIR="$(REPORT_DIR)" ./scripts/validate-repository.sh
+	REPORT_DIR="$(REPORT_DIR)" ./scripts/validate-repository.sh --overrides-root "$(OVERRIDES_ROOT)"

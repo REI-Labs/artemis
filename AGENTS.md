@@ -22,7 +22,23 @@
 - Provide analysis without modifying files only when the user explicitly asks for analysis, explanation, review, or diagnosis without implementation.
 - Preserve unrelated and pre-existing user changes. Do not commit, push, deploy, or mutate live infrastructure unless the user explicitly requests it.
 
-## Agent skills
+## Contributor handoff
+
+- For onboarding, resuming unfinished work, or preparing a handoff, read
+  [the contributor handoff](docs/contributor-handoff.md). It records current
+  boundaries, pending acceptance, and the fresh-session starting prompt.
+- For configuration changes, use [the repository guide](docs/repository-guide.md)
+  to select the authoritative layer and validation commands. For operational
+  procedures or architecture decisions, use [the GitOps index](gitops/docs/README.md).
+- Keep durable decisions and unresolved acceptance criteria in repository docs
+  or the issue tracker. Personal Codex memory, chats, and installed skills are
+  not required project dependencies. Verify historical advice against the
+  current files before applying it.
+
+## Agent workflows
+
+These conventions work without installing the original contributor's personal
+skills. Skill names in the linked references describe optional tooling.
 
 ### Issue tracker
 

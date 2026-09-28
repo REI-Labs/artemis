@@ -23,7 +23,7 @@ done
 zookeeper_version=$(yq -er '.zookeeper.version' "$release_file")
 zookeeper_image_tag=$(yq -er '.zookeeper.image.tag' "$release_file")
 connect_template=$(yq -er \
-  '.spec.template.spec.source.helm.parameters[] | select(.name == "zookeeper.connectString") | .value' \
+  '.spec.template.spec.sources[] | select(.path == "gitops/charts/artemis-ha") | .helm.parameters[] | select(.name == "zookeeper.connectString") | .value' \
   "$applicationset")
 expected_connect_template='{{.environment}}-shared-zookeeper-zookeeper-client.{{.platformNamespace}}.svc.cluster.local:2181'
 [[ "$connect_template" == "$expected_connect_template" ]] || {

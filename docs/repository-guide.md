@@ -92,6 +92,12 @@ or examples.
 
 ## Contributor workflow
 
+Topology, chart, and full-suite checks require an explicit absolute
+`OVERRIDES_ROOT` pointing to the separate checkout or the offline staging
+bundle. Use the [root validation examples](../README.md#gitops-validation).
+For promotion, also run the clean-checkout revision-pair checks described in
+the [cutover guide](../gitops/docs/override-cutover.md).
+
 1. Read `CONTEXT.md`, this guide, the closest area README, and applicable ADRs.
 2. Make the change in one authoritative layer and update adjacent tests/docs.
 3. Run the narrow validation targets listed above.

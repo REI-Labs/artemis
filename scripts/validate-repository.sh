@@ -6,10 +6,11 @@ repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 report_dir=${REPORT_DIR:-reports}
 client_dir=${CLIENT_DIR:-performance/client}
 maven=${MAVEN:-mvn}
+overrides_root=""
 
 usage() {
   printf '%s\n' \
-    "Usage: ${0##*/} [--report-dir DIRECTORY]" \
+    "Usage: ${0##*/} --overrides-root DIRECTORY [--report-dir DIRECTORY]" \
     '' \
     'Run the complete repository validation suite.' \
     'Relative report and client directories are resolved from the repository root.'
@@ -17,6 +18,11 @@ usage() {
 
 while (($#)); do
   case "$1" in
+    --overrides-root)
+      (($# >= 2)) || { printf '%s\n' '--overrides-root requires a directory' >&2; exit 2; }
+      overrides_root=$2
+      shift 2
+      ;;
     --report-dir)
       (($# >= 2)) || {
         printf '%s\n' '--report-dir requires a directory' >&2
@@ -36,6 +42,13 @@ while (($#)); do
       ;;
   esac
 done
+
+[[ -n "$overrides_root" && -d "$overrides_root/artemis" ]] || {
+  printf '%s\n' '--overrides-root must name an explicit microservices-charts checkout or staging bundle with artemis/' >&2
+  exit 2
+}
+overrides_root=$(CDPATH= cd -- "$overrides_root" && pwd)
+export ARTEMIS_OVERRIDES_ROOT="$overrides_root"
 
 [[ -n "$report_dir" ]] || {
   printf '%s\n' 'report directory must not be empty' >&2
@@ -98,6 +111,7 @@ run_check 'ZooKeeper rollout preflight regressions' \
   "$repo_root/gitops/tests/argocd/test-zookeeper-rollout-preflight.sh"
 run_check 'Workload topology' \
   "$repo_root/gitops/scripts/validate-topology.sh" \
+  --overrides-root "$overrides_root" \
   --report "$report_dir/topology-validation.json"
 run_check 'Topology regression tests' \
   "$repo_root/gitops/tests/topology/test.sh"
