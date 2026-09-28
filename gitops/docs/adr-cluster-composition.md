@@ -25,8 +25,10 @@ base's internal file layout—is the composition contract and validation seam.
 The Terraform-owned root Application injects one selected Git revision into
 the adapter's AppProject annotation. Kustomize replacements propagate it to
 the operator, ZooKeeper, ApplicationSet generator, and generated Workload Cell
-source. A temporary branch is therefore selected once per cluster during
-Release Promotion; `main` remains valid for every cluster.
+chart source. A temporary branch is therefore selected once per cluster during
+Release Promotion; `main` remains valid for the Artemis source in every cluster.
+The external override source selects an independent approved commit through
+the platform-owned adapter; see [the override split](../../docs/adr/0001-separate-workload-overrides.md).
 
 Each environment topology file owns cluster identity and the complete
 `workloadCells` catalog: namespace, coordination ID, logical environment,
@@ -71,8 +73,9 @@ The [team guide](team-messaging-policies.md) records the interface and example.
 
 - Composition policy changes are implemented once and verified for all three
   stable root paths.
-- A root revision cannot drift among child Git sources when the injection
-  contract is followed.
+- A root revision cannot drift among Artemis child Git sources when the
+  injection contract is followed. The override source has its own selected
+  commit and is validated as a compatible pair.
 - All Workload Cell topology changes are localized in one environment file.
 - Adding a Workload Cell requires one complete topology entry and its workload
   values file.

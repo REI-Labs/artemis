@@ -53,7 +53,7 @@ for command_name in kubectl yq; do
   command -v "$command_name" >/dev/null 2>&1 || { printf '%s is required\n' "$command_name" >&2; exit 2; }
 done
 
-topology="$gitops_root/argocd/topology/$environment.yaml"
+topology="$gitops_root/environments/$environment/topology.yaml"
 [[ -f "$topology" ]] || { printf 'effective topology file not found: %s\n' "$topology" >&2; exit 2; }
 platform_namespace=$(yq -r '.platformNamespace // ""' "$topology")
 [[ -n "$platform_namespace" ]] || { printf 'platformNamespace is missing from %s\n' "$topology" >&2; exit 2; }
@@ -104,7 +104,7 @@ while IFS=$'\t' read -r workload_cell workload_namespace; do
   application="$workload_cell-artemis"
   application_json=$(kubectl --context "$context" --namespace "$argocd_namespace" \
     get application "$application" -o json 2>/dev/null || true)
-  release_name=$(yq -r '.spec.source.helm.releaseName // .metadata.name // ""' <<<"$application_json" 2>/dev/null || true)
+  release_name=$(yq -r '.spec.sources[0].helm.releaseName // .spec.source.helm.releaseName // .metadata.name // ""' <<<"$application_json" 2>/dev/null || true)
   [[ -n "$release_name" ]] || release_name=$application
   live_namespace=$(yq -r '.spec.destination.namespace // ""' <<<"$application_json" 2>/dev/null || true)
   [[ -z "$live_namespace" || "$live_namespace" == "$workload_namespace" ]] || \

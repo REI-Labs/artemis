@@ -62,13 +62,13 @@ flowchart LR
 
 | Layer | Owns today |
 | --- | --- |
-| `gitops/argocd/topology/<environment>.yaml` | Cell identity, sizing, Profile selection, approved feature selections, and enablement. |
-| `gitops/argocd/profiles/<profile>/` | Reusable protocol and operating-policy defaults and the approved feature interface. |
+| `gitops/environments/<environment>/topology.yaml` | Cell identity, sizing, Profile selection, approved feature selections, and enablement. |
+| `gitops/profiles/<profile>/` | Reusable protocol and operating-policy defaults and the approved feature interface. |
 | `gitops/environments/<environment>/artemis-values.yaml` | Environment-wide platform integrations. |
-| `gitops/workloads/<environment>/<cell>/artemis-values.yaml` | Cell-specific listeners, destinations, and client access policy. |
+| `microservices-charts/artemis/<environment>/<cell>/values.yaml` | Cell-specific listeners, destinations, and client access policy. |
 | `gitops/charts/artemis-ha/` | Supported resource behavior and the active/passive implementation. |
 
-The [standard Profile contract](../argocd/profiles/standard/profile.yaml)
+The [standard Profile contract](../profiles/standard/profile.yaml)
 protects HA, coordination, durability, identity/topology, storage sizing, and
 broker version from Profile ownership. The current
 [broker template](../charts/artemis-ha/templates/activemqartemis.yaml) renders
@@ -150,9 +150,9 @@ flowchart TB
 
 | Area | Required design or implementation work |
 | --- | --- |
-| [Topology](../argocd/topology/) and [ApplicationSet composition](../argocd/bootstrap/) | Define a versioned, typed architecture interface; preserve existing cells' behavior; decide whether one cell Application owns several broker resources. No proposed field names are supported yet. |
+| [Topology](../environments/) and [ApplicationSet composition](../argocd/bootstrap/) | Define a versioned, typed architecture interface; preserve existing cells' behavior; decide whether one cell Application owns several broker resources. No proposed field names are supported yet. |
 | [Chart](../charts/artemis-ha/) | Extend values and schema; implement broker group membership, backup relationships, coordination identities, discovery, and inter-broker connections. Verify the selected operator and broker versions support the intended arrangement. |
-| [Workload configuration](../workloads/) | Express destination placement and routing policy through reviewed typed fields if required. Decide which policy is cell-wide and which is pair-specific. |
+| [Workload configuration](workload-overrides.md) | Express destination placement and routing policy through reviewed typed fields if required. Decide which policy is cell-wide and which is pair-specific. |
 | Chart services, network policy, storage, and security | Define client endpoints, allowed inter-broker traffic, persistent resource identities, placement, authorization, and management access for every member. Review private listener and Hawtio inventories. |
 | Chart monitoring and [runbooks](runbooks/) | Replace assumptions of one active and one replication relationship per cell with member-aware health, failover, maintenance, backup/restore, and retirement procedures. |
 | [Topology validator](../scripts/validate-topology.sh), [GitOps tests](../tests/), and [chart fixtures](../charts/artemis-ha/tests/) | Test legacy rendering, valid new compositions, invalid combinations, identity collisions, and resource ownership. |

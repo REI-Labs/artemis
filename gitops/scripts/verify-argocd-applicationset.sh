@@ -57,7 +57,7 @@ for command_name in kubectl yq; do
   }
 done
 
-topology="$gitops_root/argocd/topology/$environment.yaml"
+topology="$gitops_root/environments/$environment/topology.yaml"
 [[ -f "$topology" ]] || { printf 'effective topology file not found: %s\n' "$topology" >&2; exit 2; }
 
 applicationset="$environment-artemis-workloads"
@@ -103,6 +103,11 @@ check_application_status() {
   sync_status=$(yq -r '.status.sync.status // "Unknown"' <<<"$application_json")
   health_status=$(yq -r '.status.health.status // "Unknown"' <<<"$application_json")
   revision=$(yq -r '.status.sync.revision // "unknown"' <<<"$application_json")
+  if [[ "$(yq -r '.spec.sources // [] | length' <<<"$application_json")" -gt 0 ]]; then
+    revision=$(yq -r '.status.sync.revisions // [] | join(",")' <<<"$application_json")
+    [[ "$(yq -r '.status.sync.revisions // [] | length' <<<"$application_json")" -eq 2 ]] || \
+      error "Application $argocd_namespace/$name must report both source revisions"
+  fi
   [[ "$sync_status" == Synced ]] || error "Application $argocd_namespace/$name sync status is $sync_status; expected Synced"
   [[ "$health_status" == Healthy ]] || error "Application $argocd_namespace/$name health is $health_status; expected Healthy"
 
@@ -197,7 +202,7 @@ for enabled_cell in "${enabled_cells[@]}"; do
     error "Application $argocd_namespace/$application targets $actual_server namespace $actual_namespace; expected $local_server namespace $workload_namespace"
   fi
 
-  release_name=$(yq -r '.spec.source.helm.releaseName // .metadata.name // ""' <<<"$application_json")
+  release_name=$(yq -r '.spec.sources[0].helm.releaseName // .spec.source.helm.releaseName // .metadata.name // ""' <<<"$application_json")
   [[ -n "$release_name" ]] || release_name=$application
   broker_cr="${release_name}-artemis-ha"
   if ((${#broker_cr} > 63)); then

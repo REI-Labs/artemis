@@ -1,8 +1,12 @@
 SHELL := /bin/sh
 
 REPORT_DIR ?= ../reports
+OVERRIDES_ROOT ?=
+OVERRIDES_TEST_ROOT ?=
+OVERRIDES_NONPROD_ROOT ?=
+OVERRIDES_PROD_ROOT ?=
 
-.PHONY: help versions prepare-upgrade validate-release validate-toolchain release-gate validate test-upgrade-workflow test-chef-import validate-scenarios validate-topology verify-applicationset diagnose-pod-startup check-zookeeper-rollout test-zookeeper-rollout-preflight test-diagnose-pod-startup test-verify-applicationset test-topology test-argocd-ecr-credentials validate-charts validate-zookeeper-kustomize validate-operator-kustomize validate-operator-schema
+.PHONY: help versions prepare-upgrade validate-release validate-toolchain release-gate validate-revision-pairs validate test-upgrade-workflow test-chef-import validate-scenarios validate-topology verify-applicationset diagnose-pod-startup check-zookeeper-rollout test-zookeeper-rollout-preflight test-diagnose-pod-startup test-verify-applicationset test-topology test-argocd-ecr-credentials validate-charts validate-zookeeper-kustomize validate-operator-kustomize validate-operator-schema
 
 help:
 	@printf '%s\n' \
@@ -11,20 +15,21 @@ help:
 		'validate-release         Validate central versions and generated consumers' \
 		'validate-toolchain       Validate exact Kustomize, Helm, and yq renderer versions' \
 		'release-gate             Run mandatory artifact-backed GitOps release validation' \
+		'validate-revision-pairs  Verify selected Artemis/override commits for all environments' \
 		'test-upgrade-workflow    Exercise Platform Release preview regressions' \
 		'test-chef-import         Exercise Chef ActiveMQ import and redaction regressions' \
 		'validate                 Run all GitOps and Helm checks' \
 		'validate-scenarios       Validate EKS acceptance definitions' \
-		'validate-topology        Validate Workload Cell topology and rendered cluster composition' \
+		'validate-topology        Validate topology, external overrides, and composition (OVERRIDES_ROOT required)' \
 		'verify-applicationset    Verify live ApplicationSet reconciliation (requires CONTEXT, ARGOCD_NAMESPACE, ENVIRONMENT)' \
 		'diagnose-pod-startup     Classify one live pod startup failure (requires CONTEXT, NAMESPACE, POD)' \
 		'check-zookeeper-rollout  Run the read-only ZooKeeper/Argo rollout gate (requires CONTEXT, ENVIRONMENT)' \
 		'test-zookeeper-rollout-preflight Test the ZooKeeper rollout gate with captured fixtures' \
 		'test-diagnose-pod-startup Test pod startup failure classification and read-only collection' \
 		'test-verify-applicationset Test ApplicationSet live verification failure detection' \
-		'test-topology            Exercise topology regression cases' \
+		'test-topology            Exercise topology regression cases (OVERRIDES_ROOT required)' \
 		'test-argocd-ecr-credentials Test the shared ECR credential refresh helper' \
-		'validate-charts          Lint and render the Artemis Helm chart' \
+		'validate-charts          Lint and render the Artemis Helm chart (OVERRIDES_ROOT required)' \
 		'validate-zookeeper-kustomize Render and validate ZooKeeper overlays' \
 		'validate-operator-kustomize Render operator overlays (ARKMQ_UPSTREAM_CHART=/path/chart.tgz)' \
 		'validate-operator-schema Validate broker CRs against the selected ArkMQ release'
@@ -47,6 +52,13 @@ release-gate:
 	@test -f "$(ARKMQ_UPSTREAM_CHART)" || { printf '%s\n' 'ARKMQ_UPSTREAM_CHART must name the approved chart .tgz' >&2; exit 2; }
 	$(MAKE) validate-toolchain
 	ARTEMIS_RELEASE_GATE=true ARKMQ_UPSTREAM_CHART="$(ARKMQ_UPSTREAM_CHART)" $(MAKE) validate
+	$(MAKE) validate-revision-pairs
+
+validate-revision-pairs:
+	@test -d "$(OVERRIDES_TEST_ROOT)/artemis" && test -d "$(OVERRIDES_NONPROD_ROOT)/artemis" && test -d "$(OVERRIDES_PROD_ROOT)/artemis" || { printf '%s\n' 'Set OVERRIDES_TEST_ROOT, OVERRIDES_NONPROD_ROOT, and OVERRIDES_PROD_ROOT to exact clean Git checkouts' >&2; exit 2; }
+	./scripts/validate-revision-pair.sh --environment test --overrides-root "$(OVERRIDES_TEST_ROOT)" --report "$(REPORT_DIR)/test-revision-pair.json"
+	./scripts/validate-revision-pair.sh --environment nonprod --overrides-root "$(OVERRIDES_NONPROD_ROOT)" --report "$(REPORT_DIR)/nonprod-revision-pair.json"
+	./scripts/validate-revision-pair.sh --environment prod --overrides-root "$(OVERRIDES_PROD_ROOT)" --report "$(REPORT_DIR)/prod-revision-pair.json"
 
 test-upgrade-workflow:
 	./tests/releases/test-prepare-upgrade.sh
@@ -58,7 +70,8 @@ validate-scenarios:
 	./scripts/validate-scenarios.sh --report "$(REPORT_DIR)/scenario-validation.json"
 
 validate-topology:
-	./scripts/validate-topology.sh --report "$(REPORT_DIR)/topology-validation.json"
+	@test -d "$(OVERRIDES_ROOT)/artemis" || { printf '%s\n' 'Set OVERRIDES_ROOT to an explicit microservices-charts checkout or handoff bundle' >&2; exit 2; }
+	./scripts/validate-topology.sh --overrides-root "$(OVERRIDES_ROOT)" --report "$(REPORT_DIR)/topology-validation.json"
 
 verify-applicationset:
 	./scripts/verify-argocd-applicationset.sh --context "$(CONTEXT)" --argocd-namespace "$(ARGOCD_NAMESPACE)" --environment "$(ENVIRONMENT)"
@@ -79,14 +92,16 @@ test-verify-applicationset:
 	./tests/argocd/test-verify-applicationset.sh
 
 test-topology:
-	./tests/topology/test.sh
+	@test -d "$(OVERRIDES_ROOT)/artemis" || { printf '%s\n' 'Set OVERRIDES_ROOT to an explicit microservices-charts checkout or handoff bundle' >&2; exit 2; }
+	ARTEMIS_OVERRIDES_ROOT="$(OVERRIDES_ROOT)" ./tests/topology/test.sh
 	python3 -B ./tests/topology/test-hawtio-redirects.py
 
 test-argocd-ecr-credentials:
 	./tests/argocd/test-ecr-credential-refresh.sh
 
 validate-charts:
-	./scripts/validate-charts.sh --report "$(REPORT_DIR)/chart-validation.json"
+	@test -d "$(OVERRIDES_ROOT)/artemis" || { printf '%s\n' 'Set OVERRIDES_ROOT to an explicit microservices-charts checkout or handoff bundle' >&2; exit 2; }
+	ARTEMIS_OVERRIDES_ROOT="$(OVERRIDES_ROOT)" ./scripts/validate-charts.sh --report "$(REPORT_DIR)/chart-validation.json"
 
 validate-zookeeper-kustomize:
 	./kustomize/zookeeper/tests/test.sh

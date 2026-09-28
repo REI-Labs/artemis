@@ -26,7 +26,7 @@ successfully reconciled the broker.
 
 Workload Applications already enable automated sync and self-heal. For a console
 hostname change, edit the cell's `managementHost` in
-`gitops/argocd/topology/<environment>.yaml`. The ApplicationSet derives both
+`gitops/environments/<environment>/topology.yaml`. The ApplicationSet derives both
 `console.ingress.host` and `keycloak.redirectUri` from that field using Helm
 parameters, which override values files. Editing only the chart default or a
 values file can therefore leave the effective hostname unchanged. Promote the

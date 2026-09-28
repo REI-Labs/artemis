@@ -22,7 +22,7 @@ def inventory(root, environments, require_real_hosts=False):
     clients = {}
     seen_hosts = set()
     for environment in environments:
-        topology = read_yaml(root / "argocd/topology" / f"{environment}.yaml")
+        topology = read_yaml(root / "environments" / environment / "topology.yaml")
         identity = read_yaml(root / "environments" / environment / "artemis-values.yaml")["keycloak"]
         key = (identity["issuerUrl"], identity["clientId"])
         client = clients.setdefault(key, {

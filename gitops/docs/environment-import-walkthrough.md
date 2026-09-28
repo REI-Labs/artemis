@@ -36,7 +36,7 @@ different password in each deployment's credential Secret.
 
 The rendered local-cluster adapters are authoritative in
 [`argocd/bootstrap`](../argocd/bootstrap). Each directly editable environment
-file under [`argocd/topology`](../argocd/topology) owns cluster identity and the
+file under [`environments/<environment>/topology.yaml`](../environments) owns cluster identity and the
 complete Workload Cell inventory consumed by Argo CD. Chart defaults and constraints are
 authoritative in [`charts`](../charts), and promotion overlays are in
 [`environments`](../environments). Do not copy those volatile values into an
@@ -131,7 +131,7 @@ a new tag.
 
 Update the selected directory under
 [`argocd/bootstrap`](../argocd/bootstrap) and its matching
-[`topology`](../argocd/topology) file with the approved Argo namespace,
+[`topology`](../environments) file with the approved Argo namespace,
 Git source, immutable revision policy, local platform namespace, workload
 namespaces, and cluster identity. Replace the matching nonprod or prod ECR base
 placeholder in the matching operator Kustomize image patch. The repository
@@ -179,7 +179,7 @@ storage and resource sizing, Profile selection, typed feature choices, and
 enablement in the matching environment topology file. Put reusable
 Artemis capabilities in an approved Workload Cell Profile. Put pair-owned
 listeners, destinations, and client CIDRs/selectors in the cell's required file
-under [`workloads`](../workloads). Identity Secret references and authorization
+under [external overrides](workload-overrides.md). Identity Secret references and authorization
 are reserved for deferred external cells. The validator rejects any other
 per-cell path. Raw Helm parameters and release versions are not catalog
 interfaces.

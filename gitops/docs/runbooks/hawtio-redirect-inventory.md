@@ -1,6 +1,6 @@
 # Hawtio redirect URLs for every workload cell
 
-`argocd/topology/{test,nonprod,prod}.yaml` owns each cell's `managementHost`.
+`environments/{test,nonprod,prod}.yaml` owns each cell's `managementHost`.
 The ApplicationSet uses that same host for ingress and sets the callback to
 `https://<managementHost>/console`. Change the hostname in topology, not in a
 cell values file: the ApplicationSet parameter overrides Helm values.

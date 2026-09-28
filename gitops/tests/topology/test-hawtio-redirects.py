@@ -15,7 +15,7 @@ class RedirectTests(unittest.TestCase):
         report = redirects.inventory(ROOT, ["test", "nonprod", "prod"])
         expected = []
         for environment in ["test", "nonprod", "prod"]:
-            expected.extend(redirects.read_yaml(ROOT / "argocd/topology" / f"{environment}.yaml")["workloadCells"])
+            expected.extend(redirects.read_yaml(ROOT / "environments" / environment / "topology.yaml")["workloadCells"])
         clients = report["clients"]
         self.assertEqual(len(clients), 2)
         self.assertEqual(sum(len(client["cells"]) for client in clients), len(expected))
@@ -24,7 +24,7 @@ class RedirectTests(unittest.TestCase):
                          {f"https://{cell['managementHost']}/console" for cell in expected})
         self.assertTrue(any(not cell["enabled"] for client in clients for cell in client["cells"]))
         template = redirects.read_yaml(ROOT / "argocd/bootstrap/base/artemis-workloads-applicationset.yaml")
-        parameters = template["spec"]["template"]["spec"]["source"]["helm"]["parameters"]
+        parameters = template["spec"]["template"]["spec"]["sources"][0]["helm"]["parameters"]
         self.assertEqual(next(p["value"] for p in parameters if p["name"] == "keycloak.redirectUri"),
                          "https://{{.managementHost}}/console")
 

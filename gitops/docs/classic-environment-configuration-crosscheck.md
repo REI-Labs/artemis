@@ -34,7 +34,7 @@ The ApplicationSet loads values in this order:
 
 1. an approved reusable Profile;
 2. the cluster environment baseline; and
-3. the required Workload Cell file under `gitops/workloads`.
+3. the required Workload Cell file under the external `microservices-charts/artemis` tree.
 
 Acceptors, destinations, client CIDRs, and external authorization rules are
 keyed maps, so later files can add or refine named entries without replacing unrelated entries. The

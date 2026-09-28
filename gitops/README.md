@@ -2,13 +2,13 @@
 
 This area is the deployable EKS baseline. It owns:
 
-- [`argocd`](argocd): one shared cluster-composition base, three directly
-  editable environment topology files, and reusable Workload Cell Profiles;
+- [`argocd`](argocd): one shared cluster-composition base and three bootstrap adapters;
 - [`charts`](charts): the repository-owned Artemis HA chart;
 - [`kustomize`](kustomize): the shared ZooKeeper manifests and the ArkMQ
   operator overlays applied to the unmodified upstream Helm chart;
-- [`environments`](environments): test, non-production, and production runtime
-  values without image locations or release pins;
+- [`environments`](environments): test, non-production, and production topology
+  and runtime values without image locations or release pins;
+- [`profiles`](profiles): platform-owned Workload Cell Profiles;
 - [`tests`](tests): chart, topology, compatibility, and EKS acceptance assets;
 - [`scripts`](scripts): rendering, schema, topology, and scenario validation;
 - [`docs`](docs): indexed design decisions, integration and migration guides,
@@ -48,6 +48,10 @@ approved downloaded chart, run
 Release CI must run `make release-gate` with that variable so rendering cannot
 silently become `NOT_RUN`. Exact release renderer versions are pinned in
 [`toolchain.yaml`](toolchain.yaml).
+The gate also requires `OVERRIDES_ROOT` for the full offline suite and
+`OVERRIDES_TEST_ROOT`, `OVERRIDES_NONPROD_ROOT`, and `OVERRIDES_PROD_ROOT` for
+clean external checkouts at each independently selected commit. See the
+[cutover guide](docs/override-cutover.md).
 
 The
 [`observed production workload baseline`](docs/production-workload-baseline.md)
@@ -70,9 +74,9 @@ From the repository root:
 
 ```sh
 make validate-scenarios
-make validate-topology
-make test-topology
-make validate-charts
+make validate-topology OVERRIDES_ROOT=/absolute/path/to/microservices-charts
+make test-topology OVERRIDES_ROOT=/absolute/path/to/microservices-charts
+make validate-charts OVERRIDES_ROOT=/absolute/path/to/microservices-charts
 make validate-zookeeper-kustomize
 make validate-operator-schema
 ```
@@ -80,7 +84,7 @@ make validate-operator-schema
 Or run the area-level suite:
 
 ```sh
-make -C gitops validate
+make -C gitops validate OVERRIDES_ROOT=/absolute/path/to/microservices-charts
 ```
 
 The reusable deterministic client and load profiles live in

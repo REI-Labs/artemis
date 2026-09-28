@@ -44,8 +44,8 @@ case " $* " in
     else
       conditions='[]'
     fi
-    printf '{"metadata":{"name":"test-sky-artemis","ownerReferences":[{"kind":"ApplicationSet","name":"test-artemis-workloads"}]},"spec":{"source":{"helm":{"releaseName":"test-sky-artemis"}},"destination":{"server":"https://kubernetes.default.svc","namespace":"artemis-int-sky"}},"status":{"sync":{"status":"Synced","revision":"%s"},"health":{"status":"Healthy"},"conditions":%s}}\n' \
-      "${MOCK_WORKLOAD_REVISION:-remote-workload-revision}" "$conditions"
+    printf '{"metadata":{"name":"test-sky-artemis","ownerReferences":[{"kind":"ApplicationSet","name":"test-artemis-workloads"}]},"spec":{"sources":[{"helm":{"releaseName":"test-sky-artemis"}},{"ref":"workloads"}],"destination":{"server":"https://kubernetes.default.svc","namespace":"artemis-int-sky"}},"status":{"sync":{"status":"Synced","revisions":["%s","%s"]},"health":{"status":"Healthy"},"conditions":%s}}\n' \
+      "${MOCK_WORKLOAD_REVISION:-remote-workload-revision}" "${MOCK_OVERRIDES_REVISION:-remote-overrides-revision}" "$conditions"
     ;;
   *' get activemqartemis test-sky-artemis-artemis-ha '*)
     if [ "${MOCK_BROKER_NO_STATUS:-false}" = true ]; then
@@ -79,7 +79,7 @@ run_verifier() {
 
 run_verifier >"$temp_dir/pass.out"
 grep -Fq 'Application test-arkmq-operator: Synced/Healthy revision=remote-operator-revision' "$temp_dir/pass.out"
-grep -Fq 'Application test-sky-artemis: Synced/Healthy revision=remote-workload-revision' "$temp_dir/pass.out"
+grep -Fq 'Application test-sky-artemis: Synced/Healthy revision=remote-workload-revision,remote-overrides-revision' "$temp_dir/pass.out"
 grep -Fq 'Broker StatefulSet artemis-int-sky/test-sky-artemis-artemis-ha-ss: desired=2 current=2 ready=2' "$temp_dir/pass.out"
 grep -Fq 'Live Artemis health: PASS (1 enabled Workload Cells)' "$temp_dir/pass.out"
 

@@ -19,23 +19,24 @@ Each stable root path is a thin Kustomize adapter over
 - one ordinary `Application` for the cluster's ArkMQ operator;
 - one ordinary `Application` for the cluster's shared ZooKeeper ensemble; and
 - one `ApplicationSet` that generates only that cluster's Workload Cell
-  Applications from the matching file under [`topology`](topology).
+  Applications from the matching `topology.yaml` under [`environments`](../environments).
 
-Each environment file under [`topology`](topology) is the single editable
+Each `topology.yaml` under [`environments`](../environments) is the single editable
 source of truth for cluster identity and its Workload Cells: identity, traffic
 class, namespace, management hostname, storage, resources, Profile, typed
 features, and enablement. Argo CD consumes that file directly. There is no
 catalog generation step or second committed copy.
 
-The adapter patch owns only cluster identity and integration placeholders. The
+The adapter patch owns cluster identity, integration placeholders, and the
+independent override repository and approved revision. The
 shared base owns the fixed `argocd` and `artemis-platform` namespaces,
 composition policy, sync safety, derived names, and deployment inputs. Workload Cell
 namespaces are fixed as `artemis-<traffic>-<logical-environment>`, where
 `internal` is abbreviated to `int`, `external` to `ext`, and functionality such
-as `batch` is named directly. [`profiles`](profiles) provides reusable
+as `batch` is named directly. [`profiles`](../profiles) provides reusable
 capability policy; a Workload Cell selects exactly one Profile and can set only
 that Profile's typed feature choices. Each cell also has one schema-validated,
-ownership-restricted file under [`workloads`](../workloads) for pair-owned
+ownership-restricted file in [the override repository](../docs/workload-overrides.md) for pair-owned
 listeners, destinations, and client sources. Deferred external cells may also
 stage Secret references and authorization there while remaining disabled.
 The centrally selected Platform Release
@@ -54,7 +55,7 @@ The existing EKS Terraform inputs map to Artemis as follows:
 
 | Terraform-owned input | Artemis contract |
 | --- | --- |
-| `standalone_argocd_repos` | Register the standalone Artemis Git repository with the cluster-local Argo CD instance. |
+| `standalone_argocd_repos` | Register the standalone Artemis Git repository and the exact microservices-charts repository with read credentials in the cluster-local Argo CD instance. |
 | `argocd_repos` | Create one root Artemis Application using the matching bootstrap path, Git repository, and approved branch, tag, or commit. |
 
 The operator Applications use the matching repository-owned
@@ -118,7 +119,7 @@ a chart-download or rendering error after this step is a different blocker.
 Reference: [Argo CD Kustomize Helm configuration](https://argo-cd.readthedocs.io/en/stable/user-guide/kustomize/#kustomizing-helm-charts).
 
 A workload Application syncing a new Git SHA does not prove its Helm parameters
-were regenerated from topology. Inspect current `.spec.source.helm.parameters`
+were regenerated from topology. Inspect current `.spec.sources[0].helm.parameters`
 and ApplicationSet ownership, not `.status.history[].source` (identified by
 history IDs, `initiatedBy`, and deployment timestamps). The operator comparison
 error alone does not prove why workload hostname parameters are stale.

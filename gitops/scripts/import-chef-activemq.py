@@ -1056,7 +1056,7 @@ def markdown_report(report: dict[str, Any]) -> str:
             "- Confirm current client use for every listener, destination, wildcard, and role; the Chef file proves declaration, not liveness.",
             "- Reconcile identities and certificates outside Git, using only approved Kubernetes Secret references in values.",
             "- Keep JDBC, remote JMX/RMI, and legacy Jetty settings retired unless a new, reviewed Artemis requirement proves otherwise.",
-            "- Run chart and topology validation after approved entries are copied into a workload values file.",
+            "- Copy only approved entries into microservices-charts/artemis/<environment>/<workload-cell>/values.yaml, then run platform-owned raw override, topology, and chart validation with an explicit OVERRIDES_ROOT. A candidate is never a deployment input.",
             "",
             f"See `{report['jsonReportFile']}` for item-level dispositions. Its sensitive-path inventory contains paths and counts only, never values.",
             "",

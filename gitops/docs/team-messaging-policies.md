@@ -1,16 +1,16 @@
 # Application messaging policies
 
-A Workload Cell selects a Profile in `argocd/topology/<environment>.yaml`.
+A Workload Cell selects a Profile in `environments/<environment>/topology.yaml`.
 The Profile owns named `messagingPolicies`, their defaults, and an explicit
 `allowedOverrides` list. Teams select a policy on each declared destination
-in `workloads/<environment>/<workloadCellName>/artemis-values.yaml`.
+in `microservices-charts/artemis/<environment>/<workloadCellName>/values.yaml`.
 These are messaging behaviors, not user/role permissions.
 
 ## Follow the test example
 
-The [test topology](../argocd/topology/test.yaml) assigns `application-messaging`
+The [test topology](../environments/test/topology.yaml) assigns `application-messaging`
 to **test-sky2**, which remains disabled. Its
-[workload values](../workloads/test/test-sky2/artemis-values.yaml) contain:
+test-sky2 override values in the external repository contain:
 
 - `EXAMPLE.ORDERS`: `reliable-work`, overridden to eight total delivery
   attempts and a 10-second redelivery delay.
@@ -35,8 +35,7 @@ without a policy retain their existing behavior.
      redeliveryDelay: 10000
    ```
 
-4. Run `make validate-topology`, `make validate-charts`, and
-   `make test-topology` from the repository root. Submit the change for review
+4. Run `make validate-topology test-topology validate-charts OVERRIDES_ROOT=/absolute/path/to/microservices-charts` from `gitops/`. Submit the change for review
    and normal GitOps promotion. Enabling test-sky2 is a separate topology change
    after its environment prerequisites are ready.
 
@@ -63,7 +62,7 @@ including `reliable-work`, so producer-expired messages have a recovery path.
 See [Artemis address settings](https://artemis.apache.org/components/artemis/documentation/latest/address-settings.html).
 
 Policy defaults and DLQ/expiry names are platform-owned in the
-[application-messaging Profile](../argocd/profiles/application-messaging/values.yaml).
+[application-messaging Profile](../profiles/application-messaging/values.yaml).
 Workload and environment layers cannot redefine `messagingPolicies`. The team
 override schema excludes queue creation/deletion, recovery naming, memory,
 paging, disk, HA, durability, storage, and security settings. The legacy topology

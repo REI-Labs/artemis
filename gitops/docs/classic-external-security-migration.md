@@ -126,7 +126,7 @@ ownership review.
 
 The values collections are maps keyed by review IDs, not lists. Helm therefore
 deep-merges environment-wide entries with pair-specific entries from
-`gitops/workloads/<environment>/<workloadCellName>/artemis-values.yaml`. The
+`microservices-charts/artemis/<environment>/<workloadCellName>/values.yaml`. The
 keys are for Git review only; the nested `address`, queue `name`, and rule
 `match` remain the broker-visible values.
 

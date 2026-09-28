@@ -35,7 +35,7 @@ workloadCells:
     #   broker's maximum disk-usage threshold.
     # These are the only supported feature keys; submit changes through GitOps.
     # Messaging permissions (send/consume/browse) are configured separately in
-    # gitops/workloads/<environment>/<workloadCellName>/artemis-values.yaml
+    # microservices-charts/artemis/<environment>/<workloadCellName>/values.yaml
     # under authorization.rules for future external cells. Internal cells like
     # this one use networkPolicy.clientCidrs/clientSources for client access.
     features: {}

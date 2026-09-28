@@ -3,6 +3,7 @@ set -euo pipefail
 
 chart_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 gitops_dir=$(CDPATH= cd -- "$chart_dir/../.." && pwd)
+: "${ARTEMIS_OVERRIDES_ROOT:?set ARTEMIS_OVERRIDES_ROOT to a microservices-charts checkout or staging bundle}"
 temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/artemis-ha-tests.XXXXXX")
 rendered="$temp_dir/default.yaml"
 autocreate_rendered="$temp_dir/autocreate.yaml"
@@ -54,7 +55,7 @@ assert_console_stickiness "$rendered"
 alias_rendered="$temp_dir/broker-alias.yaml"
 helm template test-sky-artemis "$chart_dir" "${helm_args[@]}" \
   --namespace artemis-int-sky \
-  -f "$gitops_dir/workloads/test/test-sky/artemis-values.yaml" > "$alias_rendered"
+  -f "$ARTEMIS_OVERRIDES_ROOT/artemis/test/test-sky/values.yaml" > "$alias_rendered"
 yq eval -e 'select(.kind == "Service" and .metadata.name == "broker") |
   .spec.type == "ExternalName" and
   .spec.externalName == "test-sky-artemis-artemis-ha-artemis.artemis-int-sky.svc.cluster.local" and

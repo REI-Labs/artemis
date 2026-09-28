@@ -4,11 +4,12 @@ set -euo pipefail
 test_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$test_dir/../.." && pwd)
 validator="$repo_root/scripts/validate-topology.sh"
-topology_dir="$repo_root/argocd/topology"
+topology_dir="$repo_root/environments"
 bootstrap_dir="$repo_root/argocd/bootstrap"
-profile_dir="$repo_root/argocd/profiles"
+profile_dir="$repo_root/profiles"
 environment_dir="$repo_root/environments"
-workload_dir="$repo_root/workloads"
+: "${ARTEMIS_OVERRIDES_ROOT:?set ARTEMIS_OVERRIDES_ROOT to a microservices-charts checkout or staging bundle}"
+workload_dir=$ARTEMIS_OVERRIDES_ROOT
 
 for command_name in yq kubectl helm; do
   command -v "$command_name" >/dev/null 2>&1 || {
@@ -27,7 +28,7 @@ run_validator() {
     --bootstrap-dir "$bootstrap" \
     --profile-dir "$profiles" \
     --environment-dir "$environments" \
-    --workload-dir "$workloads" \
+    --overrides-root "$workloads" \
     --report "$temp_dir/report.json" >"$output" 2>&1
 }
 
@@ -38,7 +39,7 @@ assert_topology_rejected() {
   local case_name=$1 environment=$2 expression=$3 expected=$4
   local candidate="$temp_dir/$case_name-topology" output="$temp_dir/$case_name.out"
   cp -R "$topology_dir" "$candidate"
-  yq -i "$expression" "$candidate/$environment.yaml"
+  yq -i "$expression" "$candidate/$environment/topology.yaml"
   if run_validator "$candidate" "$bootstrap_dir" "$profile_dir" "$environment_dir" "$workload_dir" "$output"; then
     printf 'validator accepted invalid Workload Cell topology case: %s\n' "$case_name" >&2
     exit 1
@@ -102,7 +103,7 @@ assert_workload_rejected() {
   local case_name=$1 file=$2 expression=$3 expected=$4
   local candidate="$temp_dir/$case_name-workloads" output="$temp_dir/$case_name.out"
   cp -R "$workload_dir" "$candidate"
-  yq -i "$expression" "$candidate/$file"
+  yq -i "$expression" "$candidate/artemis/$file"
   if run_validator "$topology_dir" "$bootstrap_dir" "$profile_dir" "$environment_dir" "$candidate" "$output"; then
     printf 'validator accepted invalid Workload Cell values case: %s\n' "$case_name" >&2
     exit 1
@@ -182,6 +183,16 @@ assert_bootstrap_rejected wrong-catalog-interface \
   '.spec.generators[0].matrix.generators[1].list.elementsYaml = "{{ .brokerPairs | toJson }}"' \
   'cluster test workloads catalog expansion: expected {{ .workloadCells | toJson }}, got {{ .brokerPairs | toJson }}'
 
+assert_bootstrap_rejected rendered-overrides-source \
+  'base/artemis-workloads-applicationset.yaml' \
+  '.spec.template.spec.sources[1].path = "artemis"' \
+  'cluster test values-only source keys'
+
+assert_bootstrap_rejected missing-external-values \
+  'base/artemis-workloads-applicationset.yaml' \
+  '.spec.template.spec.sources[0].helm.ignoreMissingValueFiles = true' \
+  'cluster test required external values Helm keys'
+
 assert_profile_rejected protected-ha-setting standard/values.yaml \
   '.ha.retryReplicationWaitMs = 1' \
   'Workload Cell Profile standard field ha.retryReplicationWaitMs violates protected-setting ownership'
@@ -194,13 +205,20 @@ assert_environment_rejected profile-environment-collision prod \
   '.brokerProperties.maxDiskUsage = 70' \
   'cluster prod environment field brokerProperties.maxDiskUsage violates cluster-integration ownership'
 
-assert_workload_rejected protected-workload-version test/test-sky/artemis-values.yaml \
+assert_workload_rejected protected-workload-version test/test-sky/values.yaml \
   '.broker.version = "9.9.9"' \
-  'field workloadValues.broker.version violates rule: must be a pair-owned listener'
+  'workloadValues.broker: protected or unknown field'
+
+assert_workload_rejected protected-null test/test-sky/values.yaml \
+  '.ha = null' 'workloadValues.ha: protected or unknown field'
+assert_workload_rejected empty-container test/test-sky/values.yaml \
+  '.services = {}' 'workloadValues.services: empty container'
+assert_workload_rejected wrong-type test/test-sky/values.yaml \
+  '.destinations = []' 'workloadValues.destinations: expected object'
 
 missing_workloads="$temp_dir/missing-workloads"
 cp -R "$workload_dir" "$missing_workloads"
-rm "$missing_workloads/test/test-sky/artemis-values.yaml"
+rm "$missing_workloads/artemis/test/test-sky/values.yaml"
 if run_validator "$topology_dir" "$bootstrap_dir" "$profile_dir" "$environment_dir" "$missing_workloads" "$temp_dir/missing-workload.out"; then
   printf '%s\n' 'validator accepted a missing Workload Cell values file' >&2
   exit 1
@@ -214,9 +232,9 @@ growth_topology="$temp_dir/growth-topology"
 growth_workloads="$temp_dir/growth-workloads"
 cp -R "$topology_dir" "$growth_topology"
 cp -R "$workload_dir" "$growth_workloads"
-mkdir -p "$growth_workloads/test/test-extra"
+mkdir -p "$growth_workloads/artemis/test/test-extra"
 # Keep the growth fixture independent of the staged application-policy example.
-printf '{}\n' > "$growth_workloads/test/test-extra/artemis-values.yaml"
+printf '{}\n' > "$growth_workloads/artemis/test/test-extra/values.yaml"
 yq -i '
   .workloadCells += [{
     "workloadCellName": "test-extra",
@@ -234,20 +252,20 @@ yq -i '
     "features": {},
     "enabled": "false"
   }]
-' "$growth_topology/test.yaml"
+' "$growth_topology/test/topology.yaml"
 run_validator "$growth_topology" "$bootstrap_dir" "$profile_dir" "$environment_dir" "$growth_workloads" "$temp_dir/growth.out"
 
 # An operational enablement is one direct topology edit.
 enabled_topology="$temp_dir/enabled-topology"
 cp -R "$topology_dir" "$enabled_topology"
-yq -i '(.workloadCells[] | select(.workloadCellName == "nonprod-trn").enabled) = "true"' "$enabled_topology/nonprod.yaml"
+yq -i '(.workloadCells[] | select(.workloadCellName == "nonprod-trn").enabled) = "true"' "$enabled_topology/nonprod/topology.yaml"
 run_validator "$enabled_topology" "$bootstrap_dir" "$profile_dir" "$environment_dir" "$workload_dir" "$temp_dir/enabled.out"
 
 # Enabling a deferred external cell without its required external security
 # shape fails before an Application can be promoted.
 external_topology="$temp_dir/external-topology"
 cp -R "$topology_dir" "$external_topology"
-yq -i '(.workloadCells[] | select(.workloadCellName == "prod-pp-external").enabled) = "true"' "$external_topology/prod.yaml"
+yq -i '(.workloadCells[] | select(.workloadCellName == "prod-pp-external").enabled) = "true"' "$external_topology/prod/topology.yaml"
 if run_validator "$external_topology" "$bootstrap_dir" "$profile_dir" "$environment_dir" "$workload_dir" "$temp_dir/external.out"; then
   printf '%s\n' 'validator enabled an external Workload Cell without its required security configuration' >&2
   exit 1
@@ -261,14 +279,14 @@ grep -Fq 'cluster prod Workload Cell prod-pp-external field workloadValues viola
 staged_external_workloads="$temp_dir/staged-external-workloads"
 cp -R "$workload_dir" "$staged_external_workloads"
 cp "$repo_root/charts/artemis-ha/tests/fixtures/external-mtls-values.yaml" \
-  "$staged_external_workloads/prod/prod-pp-external/artemis-values.yaml"
+  "$staged_external_workloads/artemis/prod/prod-pp-external/values.yaml"
 run_validator "$topology_dir" "$bootstrap_dir" "$profile_dir" "$environment_dir" \
   "$staged_external_workloads" "$temp_dir/staged-external.out"
 
 # Both approved typed feature choices render through the shared template.
 feature_topology="$temp_dir/feature-topology"
 cp -R "$topology_dir" "$feature_topology"
-yq -i '(.workloadCells[] | select(.workloadCellName == "test-sky").features.expiryResources) = true' "$feature_topology/test.yaml"
+yq -i '(.workloadCells[] | select(.workloadCellName == "test-sky").features.expiryResources) = true' "$feature_topology/test/topology.yaml"
 run_validator "$feature_topology" "$bootstrap_dir" "$profile_dir" "$environment_dir" "$workload_dir" "$temp_dir/feature.out"
 
 # A single temporary root revision is injected once and reaches every child.
@@ -281,12 +299,23 @@ kubectl kustomize "$revision_bootstrap/test" > "$temp_dir/revision-rendered.yaml
 revision_values=$(yq ea -r '
   select(.kind == "Application") | .spec.source.targetRevision,
   select(.kind == "ApplicationSet") | .spec.generators[0].matrix.generators[0].git.revision,
-  select(.kind == "ApplicationSet") | .spec.template.spec.source.targetRevision
+  select(.kind == "ApplicationSet") | .spec.template.spec.sources[0].targetRevision
 ' "$temp_dir/revision-rendered.yaml" | sed '/^---$/d' | sort -u)
 [[ "$revision_values" == 'upgrade/platform-release' ]] || {
   printf 'root revision was not propagated uniformly: %s\n' "$revision_values" >&2
   exit 1
 }
+override_revision=$(yq ea -r 'select(.kind == "ApplicationSet") | .spec.template.spec.sources[1].targetRevision' "$temp_dir/revision-rendered.yaml")
+[[ "$override_revision" == PLACEHOLDER_APPROVED_TEST_OVERRIDES_COMMIT ]] || {
+  printf 'root revision incorrectly changed override revision: %s\n' "$override_revision" >&2
+  exit 1
+}
+yq -i '.metadata.annotations."composition.artemis.apache.org/overrides-revision" = "0123456789abcdef0123456789abcdef01234567"' \
+  "$revision_bootstrap/test/cluster.patch.yaml"
+run_validator "$topology_dir" "$revision_bootstrap" "$profile_dir" "$environment_dir" "$workload_dir" "$temp_dir/overrides-revision.out"
+kubectl kustomize "$revision_bootstrap/test" > "$temp_dir/overrides-revision-rendered.yaml"
+[[ "$(yq ea -r 'select(.kind == "ApplicationSet") | .spec.template.spec.sources[1].targetRevision' "$temp_dir/overrides-revision-rendered.yaml")" == 0123456789abcdef0123456789abcdef01234567 ]]
+[[ "$(yq ea -r 'select(.kind == "ApplicationSet") | .spec.template.spec.sources[0].targetRevision' "$temp_dir/overrides-revision-rendered.yaml")" == upgrade/platform-release ]]
 
 # The initial Profile is semantically neutral for current test behavior, and
 # the derived Application and broker custom-resource identities stay stable.
@@ -294,7 +323,7 @@ helm template test-sky-artemis "$repo_root/charts/artemis-ha" \
   --namespace artemis-int-sky \
   -f "$profile_dir/standard/values.yaml" \
   -f "$environment_dir/test/artemis-values.yaml" \
-  -f "$workload_dir/test/test-sky/artemis-values.yaml" \
+  -f "$workload_dir/artemis/test/test-sky/values.yaml" \
   --set ha.coordinationId=test-sky-01 \
   --set ha.groupName=test-sky-group \
   --set zookeeper.connectString=test-shared-zookeeper-zookeeper-client.artemis-platform.svc.cluster.local:2181 \
@@ -327,7 +356,7 @@ yq -i '
 helm template test-sky-artemis "$repo_root/charts/artemis-ha" \
   --namespace artemis-int-sky \
   -f "$legacy_values" \
-  -f "$workload_dir/test/test-sky/artemis-values.yaml" \
+  -f "$workload_dir/artemis/test/test-sky/values.yaml" \
   --set ha.coordinationId=test-sky-01 \
   --set ha.groupName=test-sky-group \
   --set zookeeper.connectString=test-shared-zookeeper-zookeeper-client.artemis-platform.svc.cluster.local:2181 \
@@ -355,10 +384,10 @@ grep -Fq "value: '{{.enabled}}'" "$bootstrap_dir/base/artemis-workloads-applicat
 
 
 # Profile policy definitions cannot be redefined by a workload or environment.
-assert_workload_rejected policy-ownership test/test-sky2/artemis-values.yaml \
+assert_workload_rejected policy-ownership test/test-sky2/values.yaml \
   '.messagingPolicies.reliable-work.settings.maxDeliveryAttempts = 19' \
-  'workloadValues.messagingPolicies.reliable-work.settings.maxDeliveryAttempts'
-assert_workload_rejected policy-forbidden-override test/test-sky2/artemis-values.yaml \
+  'workloadValues.messagingPolicies: protected or unknown field'
+assert_workload_rejected policy-forbidden-override test/test-sky2/values.yaml \
   '.destinations.example-orders.policyOverrides.expiryDelay = 10000' \
   'effective Profile/environment/workload values fail chart schema or render validation'
 assert_environment_rejected policy-environment-ownership test \

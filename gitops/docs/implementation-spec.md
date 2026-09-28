@@ -32,7 +32,7 @@ changeable implementation facts belong in executable files:
 | Concern | Authoritative source |
 | --- | --- |
 | Local-cluster composition and child Applications | Rendered [`argocd/bootstrap`](../argocd/bootstrap) adapters |
-| Cluster identity and complete Workload Cell topology consumed by Argo CD | Environment files under [`argocd/topology`](../argocd/topology) |
+| Cluster identity and complete Workload Cell topology consumed by Argo CD | Environment files under [`environments/<environment>/topology.yaml`](../environments) |
 | Argo CD repository credentials and root Application | Per-cluster EKS Terraform inputs |
 | `messaging-platform` AppProject policy | Shared [`argocd/bootstrap/base`](../argocd/bootstrap/base) rendered through the matching cluster adapter |
 | Current platform, component, and image versions | [`releases/current.yaml`](../releases/current.yaml), the Artemis chart, and Kustomize deployment bases/overlays |
@@ -41,7 +41,7 @@ changeable implementation facts belong in executable files:
 | Validation workflow | [`Makefile`](../Makefile) and [`scripts`](../scripts) |
 | Acceptance scenarios and thresholds | [`tests/e2e/acceptance-plan.yaml`](../tests/e2e/acceptance-plan.yaml) and [`performance/profiles/sustained-load-profiles.yaml`](../../performance/profiles/sustained-load-profiles.yaml) |
 | Classic compatibility inventory | [`tests/compatibility/classic-6.2.6-inventory.yaml`](../tests/compatibility/classic-6.2.6-inventory.yaml) |
-| Pair-owned listener, destination, and client-network policy; deferred external identity and authorization | Schema-validated files under [`workloads`](../workloads) |
+| Pair-owned listener, destination, and client-network policy; deferred external identity and authorization | Schema-validated files under [external overrides](workload-overrides.md) |
 
 If prose conflicts with one of these files, the executable source governs the
 current implementation. A change that alters the design decision or safety

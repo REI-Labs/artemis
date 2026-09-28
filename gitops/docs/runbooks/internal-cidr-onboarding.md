@@ -39,7 +39,7 @@ approved ranges as narrow as the actual routing path permits.
 Use the pair-owned values file when ranges differ by Workload Cell:
 
 ```text
-gitops/workloads/<environment>/<workloadCellName>/artemis-values.yaml
+microservices-charts/artemis/<environment>/<workloadCellName>/values.yaml
 ```
 
 ```yaml

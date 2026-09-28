@@ -11,14 +11,14 @@ For each cell, the generated Application renders the repository-owned Artemis
 chart with values in this order:
 
 1. `gitops/charts/artemis-ha/values.yaml` supplies chart defaults;
-2. `gitops/argocd/profiles/<profile>/values.yaml` supplies reusable capability
+2. `gitops/profiles/<profile>/values.yaml` supplies reusable capability
    and operating-policy defaults;
 3. `gitops/environments/<environment>/artemis-values.yaml` supplies
    cluster-wide integration values;
-4. `gitops/workloads/<environment>/<workload-cell>/artemis-values.yaml`
+4. `microservices-charts/artemis/<environment>/<workload-cell>/values.yaml`
    supplies pair-owned messaging and client policy; and
 5. the ApplicationSet injects typed identity, sizing, feature, and enablement
-   values from `gitops/argocd/topology/<environment>.yaml`.
+   values from `gitops/environments/<environment>/topology.yaml`.
 
 Later layers win when Helm merges the same supported map field. The topology
 validator also protects fields that a later layer is not allowed to own. Do
@@ -29,10 +29,10 @@ setting in several layers.
 
 | Change | Authoritative location | Also review or validate |
 | --- | --- | --- |
-| Add, enable, disable, resize, or rename a Workload Cell | `gitops/argocd/topology/<environment>.yaml` | Add or remove the matching workload values file; run `make validate-topology` and `make test-topology`. Retirement must follow the retirement runbook. |
-| Change one cell's listeners, destinations, client CIDRs/selectors, or external authorization | `gitops/workloads/<environment>/<workload-cell>/artemis-values.yaml` | `gitops/workloads/README.md`, chart schema, chart and topology validation. |
+| Add, enable, disable, resize, or rename a Workload Cell | `gitops/environments/<environment>/topology.yaml` | Add or remove the matching workload values file; run `make validate-topology` and `make test-topology`. Retirement must follow the retirement runbook. |
+| Change one cell's listeners, destinations, client CIDRs/selectors, or external authorization | `microservices-charts/artemis/<environment>/<workload-cell>/values.yaml` | `gitops/docs/workload-overrides.md`, chart schema, chart and topology validation. |
 | Change a cluster-wide storage class, label, Keycloak integration, ingress baseline, or network input | `gitops/environments/<environment>/artemis-values.yaml` | `gitops/environments/README.md`; keep release and image data out of this layer. |
-| Add a reusable capability or approved feature switch | `gitops/argocd/profiles/<profile>/profile.yaml` and `values.yaml` | ApplicationSet typed parameters and topology validator/tests. Do not put identity, release, HA, durability, coordination, or cluster integration in a Profile. |
+| Add a reusable capability or approved feature switch | `gitops/profiles/<profile>/profile.yaml` and `values.yaml` | ApplicationSet typed parameters and topology validator/tests. Do not put identity, release, HA, durability, coordination, or cluster integration in a Profile. |
 | Change Artemis resource behavior or add a supported chart value | `gitops/charts/artemis-ha/values.yaml`, `values.schema.json`, and `templates/` | Chart fixtures/tests, chart README, implementation spec, and relevant ADR. |
 | Upgrade Kubernetes, ArkMQ, Artemis, or ZooKeeper | `gitops/releases/current.yaml` through `make prepare-upgrade` | Kustomize/chart consumers, provenance, upgrade runbook, `make release-gate`. Do not pin versions in environment or workload values. |
 | Change common ArkMQ operator policy | `gitops/kustomize/arkmq-operator/base/` | Operator overlays/tests, toolchain pin, operator ADR. Prefer upstream chart values; patch only policy the chart cannot express. |
@@ -57,12 +57,12 @@ Artemis/
 ├── CONTEXT.md                   Platform vocabulary
 ├── docs/                        Repository-wide contributor guidance
 ├── gitops/
-│   ├── argocd/                  Cluster composition, topology, and Profiles
+│   ├── argocd/                  Cluster composition and bootstrap
 │   ├── charts/artemis-ha/       Repository-owned Workload Cell chart
 │   ├── environments/            Environment-wide Artemis values
 │   ├── kustomize/               ArkMQ operator and ZooKeeper deployments
 │   ├── releases/                Central Platform Release record
-│   ├── workloads/               Per-Workload-Cell values
+│   ├── profiles/                Platform-owned Workload Cell Profiles
 │   ├── scripts/ and tests/      GitOps rendering and contract checks
 │   └── docs/                    Design, integration, migration, and runbooks
 ├── local/                       Standalone Compose development broker

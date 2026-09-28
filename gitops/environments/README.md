@@ -4,10 +4,10 @@ The ZooKeeper Kustomize base enforces the shared three-member quorum,
 persistent volumes, disruption budget, zone and host scheduling, network
 policy, and metrics defaults. Its `test`, `nonprod`, and `prod` overlays under
 [`kustomize/zookeeper`](../kustomize/zookeeper) own ZooKeeper sizing and
-cluster integration references. This directory now contains only Artemis
-chart values. Workload Cell identity and sizing live in
-[`argocd/topology`](../argocd/topology), while pair-owned messaging policy lives
-under [`workloads`](../workloads). Environment-wide listener, destination, and
+cluster integration references. This directory contains Artemis chart values
+and platform-owned topology. Workload Cell identity and sizing live in
+the `topology.yaml` file in each environment, while pair-owned messaging policy lives
+under [the external override repository](../docs/workload-overrides.md). Environment-wide listener, destination, and
 client CIDR entries may be placed here when they genuinely apply to every cell;
 deferred external authorization entries belong here only when they apply to
 every external cell. Later Workload Cell maps deep-merge pair-specific additions.

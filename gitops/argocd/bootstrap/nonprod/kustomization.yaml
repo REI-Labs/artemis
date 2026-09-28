@@ -38,7 +38,7 @@ replacements:
       - select: {kind: Application}
         fieldPaths: [spec.source.targetRevision]
       - select: {kind: ApplicationSet}
-        fieldPaths: [spec.generators.0.matrix.generators.0.git.revision, spec.template.spec.source.targetRevision]
+        fieldPaths: [spec.generators.0.matrix.generators.0.git.revision, spec.template.spec.sources.0.targetRevision]
   - source: {kind: AppProject, name: messaging-platform, fieldPath: 'metadata.annotations.composition\.artemis\.apache\.org/repository'}
     targets:
       - select: {kind: AppProject}
@@ -46,7 +46,17 @@ replacements:
       - select: {kind: Application}
         fieldPaths: [spec.source.repoURL]
       - select: {kind: ApplicationSet}
-        fieldPaths: [spec.generators.0.matrix.generators.0.git.repoURL, spec.template.spec.source.repoURL]
+        fieldPaths: [spec.generators.0.matrix.generators.0.git.repoURL, spec.template.spec.sources.0.repoURL]
+  - source: {kind: AppProject, name: messaging-platform, fieldPath: 'metadata.annotations.composition\.artemis\.apache\.org/overrides-repository'}
+    targets:
+      - select: {kind: AppProject}
+        fieldPaths: [spec.sourceRepos.1]
+      - select: {kind: ApplicationSet}
+        fieldPaths: [spec.template.spec.sources.1.repoURL]
+  - source: {kind: AppProject, name: messaging-platform, fieldPath: 'metadata.annotations.composition\.artemis\.apache\.org/overrides-revision'}
+    targets:
+      - select: {kind: ApplicationSet}
+        fieldPaths: [spec.template.spec.sources.1.targetRevision]
   - source: {kind: AppProject, name: messaging-platform, fieldPath: 'metadata.annotations.composition\.artemis\.apache\.org/platform-namespace'}
     targets:
       - select: {kind: AppProject}

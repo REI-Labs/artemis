@@ -7,6 +7,10 @@ configuration change belongs.
 
 ## Architecture and sources of truth
 
+- [Separate application-owned overrides](../../docs/adr/0001-separate-workload-overrides.md)
+  — repository split decision, implemented locally with external cutover pending.
+- [Workload override contract](workload-overrides.md) — application-owned fields
+  and explicit local validation input.
 - [Implementation specification](implementation-spec.md) — current end-to-end
   design and ownership baseline.
 - [Cluster composition ADR](adr-cluster-composition.md) — accepted Argo CD and
@@ -29,6 +33,8 @@ the conflict rather than choosing whichever version is convenient.
 
 ## Integration and migration guides
 
+- [Override repository cutover](override-cutover.md) — protected validation,
+  revision pairing, repository setup, and promotion handoff.
 - [Application messaging policies](team-messaging-policies.md) — Profile defaults,
   destination overrides, and the staged test-sky2 example.
 

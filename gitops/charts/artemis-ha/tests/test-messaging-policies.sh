@@ -2,11 +2,12 @@
 set -euo pipefail
 chart_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 gitops_dir=$(cd "$chart_dir/../.." && pwd)
+: "${ARTEMIS_OVERRIDES_ROOT:?set ARTEMIS_OVERRIDES_ROOT to a microservices-charts checkout or staging bundle}"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 args=(--set ha.coordinationId=policy-test01 --set zookeeper.connectString=example:2181
-  -f "$gitops_dir/argocd/profiles/application-messaging/values.yaml")
-example="$gitops_dir/workloads/test/test-sky2/artemis-values.yaml"
+  -f "$gitops_dir/profiles/application-messaging/values.yaml")
+example="$ARTEMIS_OVERRIDES_ROOT/artemis/test/test-sky2/values.yaml"
 helm template policies "$chart_dir" "${args[@]}" -f "$example" > "$tmp/render.yaml"
 for property in \
   'addressSettings."EXAMPLE.ORDERS".maxDeliveryAttempts=8' \

@@ -64,11 +64,11 @@ gitops/argocd/bootstrap/base/artemis-workloads-applicationset.yaml
 gitops/argocd/bootstrap/test/kustomization.yaml
 gitops/argocd/bootstrap/nonprod/kustomization.yaml
 gitops/argocd/bootstrap/prod/kustomization.yaml
-gitops/argocd/topology/test.yaml
-gitops/argocd/topology/nonprod.yaml
-gitops/argocd/topology/prod.yaml
-gitops/argocd/profiles/standard/profile.yaml
-gitops/argocd/profiles/standard/values.yaml
+gitops/environments/test/topology.yaml
+gitops/environments/nonprod/topology.yaml
+gitops/environments/prod/topology.yaml
+gitops/profiles/standard/profile.yaml
+gitops/profiles/standard/values.yaml
 gitops/scripts/validate-topology.sh
 gitops/scripts/validate-rendered-schema.sh
 gitops/scripts/render-arkmq-operator.sh
@@ -158,11 +158,11 @@ if command -v yq >/dev/null 2>&1; then
     "$repo_root/gitops/argocd/bootstrap/nonprod/cluster.patch.yaml" \
     "$repo_root/gitops/argocd/bootstrap/prod/kustomization.yaml" \
     "$repo_root/gitops/argocd/bootstrap/prod/cluster.patch.yaml" \
-    "$repo_root/gitops/argocd/topology/test.yaml" \
-    "$repo_root/gitops/argocd/topology/nonprod.yaml" \
-    "$repo_root/gitops/argocd/topology/prod.yaml" \
-    "$repo_root/gitops/argocd/profiles/standard/profile.yaml" \
-    "$repo_root/gitops/argocd/profiles/standard/values.yaml"; do
+    "$repo_root/gitops/environments/test/topology.yaml" \
+    "$repo_root/gitops/environments/nonprod/topology.yaml" \
+    "$repo_root/gitops/environments/prod/topology.yaml" \
+    "$repo_root/gitops/profiles/standard/profile.yaml" \
+    "$repo_root/gitops/profiles/standard/values.yaml"; do
     yq -e '.' "$yaml_file" >/dev/null || {
       printf 'invalid YAML: %s\n' "${yaml_file#"$repo_root/"}" >&2
       errors=$((errors + 1))

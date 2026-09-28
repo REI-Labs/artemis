@@ -18,7 +18,7 @@ spec:
               repoURL: https://example.invalid/PLACEHOLDER_ORG/PLACEHOLDER_GITOPS_REPOSITORY.git
               revision: main
               files:
-                - path: gitops/argocd/topology/cluster.yaml
+                - path: gitops/environments/cluster/topology.yaml
           - list:
               elementsYaml: '{{ .workloadCells | toJson }}'
       selector:
@@ -35,16 +35,16 @@ spec:
         argocd.argoproj.io/sync-wave: "0"
     spec:
       project: messaging-platform
-      source:
-        repoURL: https://example.invalid/PLACEHOLDER_ORG/PLACEHOLDER_GITOPS_REPOSITORY.git
-        targetRevision: main
-        path: gitops/charts/artemis-ha
-        helm:
-          valueFiles:
-            - ../../argocd/profiles/{{.profile}}/values.yaml
-            - ../../environments/{{.environment}}/artemis-values.yaml
-            - ../../workloads/{{.environment}}/{{.workloadCellName}}/artemis-values.yaml
-          parameters:
+      sources:
+        - repoURL: https://example.invalid/PLACEHOLDER_ORG/PLACEHOLDER_GITOPS_REPOSITORY.git
+          targetRevision: main
+          path: gitops/charts/artemis-ha
+          helm:
+            valueFiles:
+              - ../../profiles/{{.profile}}/values.yaml
+              - ../../environments/{{.environment}}/artemis-values.yaml
+              - $workloads/artemis/{{.environment}}/{{.workloadCellName}}/values.yaml
+            parameters:
             - name: ha.coordinationId
               value: '{{.coordinationId}}'
             - name: ha.groupName
@@ -81,6 +81,10 @@ spec:
               value: '{{.managementHost}}'
             - name: keycloak.redirectUri
               value: 'https://{{.managementHost}}/console'
+        # Values-only source: no path or chart may generate resources here.
+        - repoURL: https://example.invalid/PLACEHOLDER_ORG/PLACEHOLDER_MICROSERVICES_CHARTS_REPOSITORY.git
+          targetRevision: PLACEHOLDER_APPROVED_OVERRIDES_COMMIT
+          ref: workloads
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{.workloadNamespace}}'

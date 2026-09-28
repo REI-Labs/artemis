@@ -33,7 +33,7 @@ contains:
 
 Candidate files are deliberately marked `DO NOT APPLY DIRECTLY`. Copy only
 approved entries into
-`gitops/workloads/<environment>/<workloadCellName>/artemis-values.yaml`, then
+`microservices-charts/artemis/<environment>/<workloadCellName>/values.yaml`, then
 run `make validate-charts` and `make validate-topology`.
 
 ## Translation policy

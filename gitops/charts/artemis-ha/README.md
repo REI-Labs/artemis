@@ -119,8 +119,9 @@ Each workload's effective configuration must supply a pair-unique
 ZooKeeper connection and selectors, ingress identity, and the approved policy
 sources. The operator maps `broker.version` to the immutable private broker and
 init images configured by its pinned chart. The ApplicationSet supplies
-Workload Cell identity and sizing from `argocd/topology`, loads one approved
-Profile, and then loads environment-owned cluster integrations. Run
+Workload Cell identity and sizing from `environments/<environment>/topology.yaml`,
+loads one approved Profile and environment-owned cluster integrations, then
+reads the required external Workload Cell override file. Run
 `./tests/test.sh` for focused rendering, schema,
 port-coherence, and Kubernetes resource validation.
 
@@ -182,7 +183,7 @@ these controls cannot be bypassed by an untyped override.
 Both collections are maps keyed by stable review IDs, so Profile, environment,
 and Workload Cell value layers can be deep-merged. Duplicate effective address,
 queue, and listener-port values fail rendering. The fixed per-cell file under
-`gitops/workloads/<environment>/<workloadCellName>` is the normal owner for
+`microservices-charts/artemis/<environment>/<workloadCellName>/values.yaml` is the normal owner for
 pair-specific policy.
 
 Use the [internal CIDR onboarding guide](../../docs/runbooks/internal-cidr-onboarding.md)
@@ -240,7 +241,7 @@ DLQ and expiry resources are broker-managed operational destinations.
 
 The environment-local ApplicationSet overrides `console.ingress.host`,
 `keycloak.redirectUri`, and `persistence.size` from each Workload Cell entry in
-`argocd/topology`. This gives every Workload Cell an unambiguous Hawtio/Jolokia URL,
+`environments/<environment>/topology.yaml`. This gives every Workload Cell an unambiguous Hawtio/Jolokia URL,
 exact OIDC redirect URI, and explicit storage allocation. The host, redirect
 URI, shared-ALB certificate coverage, DNS record, and Keycloak client
 registration must agree before enabling a Workload Cell.

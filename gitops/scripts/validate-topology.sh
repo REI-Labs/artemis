@@ -3,13 +3,14 @@ set -euo pipefail
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
-topology_dir="$repo_root/argocd/topology"
+topology_dir="$repo_root/environments"
 bootstrap_dir="$repo_root/argocd/bootstrap"
-profile_dir="$repo_root/argocd/profiles"
+profile_dir="$repo_root/profiles"
 environment_dir="$repo_root/environments"
-workload_dir="$repo_root/workloads"
+overrides_root=""
 chart_dir="$repo_root/charts/artemis-ha"
 report="$repo_root/reports/topology-validation.json"
+selected_environment=""
 
 while (($#)); do
   case "$1" in
@@ -17,18 +18,32 @@ while (($#)); do
     --bootstrap-dir) bootstrap_dir=$2; shift 2 ;;
     --profile-dir) profile_dir=$2; shift 2 ;;
     --environment-dir) environment_dir=$2; shift 2 ;;
-    --workload-dir) workload_dir=$2; shift 2 ;;
+    --overrides-root) overrides_root=$2; shift 2 ;;
+    --environment) selected_environment=$2; shift 2 ;;
     --report) report=$2; shift 2 ;;
     *) printf 'unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
 done
 
+if [[ -n "$selected_environment" && "$selected_environment" != test && "$selected_environment" != nonprod && "$selected_environment" != prod ]]; then
+  printf 'invalid environment: %s\n' "$selected_environment" >&2
+  exit 2
+fi
+
+[[ -n "$overrides_root" && -d "$overrides_root/artemis" ]] || {
+  printf '%s\n' '--overrides-root must point to an explicit microservices-charts checkout or staging bundle with artemis/' >&2
+  exit 2
+}
 command -v yq >/dev/null 2>&1 || {
   printf '%s\n' 'yq is required (the repository toolchain uses yq 4.53.3)' >&2
   exit 2
 }
 command -v helm >/dev/null 2>&1 || {
   printf '%s\n' 'helm is required for effective Workload Cell values validation' >&2
+  exit 2
+}
+python3 -c 'import yaml' >/dev/null 2>&1 || {
+  printf '%s\n' 'Python 3 with PyYAML is required for raw workload override validation' >&2
   exit 2
 }
 if command -v kustomize >/dev/null 2>&1; then
@@ -81,7 +96,7 @@ parameter_value() {
   local manifest=$1 application_set=$2 parameter=$3
   APPSET="$application_set" PARAMETER="$parameter" yq ea -r '
     select(.kind == "ApplicationSet" and .metadata.name == strenv(APPSET))
-    | .spec.template.spec.source.helm.parameters[]
+    | .spec.template.spec.sources[0].helm.parameters[]
     | select(.name == strenv(PARAMETER))
     | .value
   ' "$manifest"
@@ -158,8 +173,8 @@ if [[ -d "$profile_dir" ]]; then
 fi
 [[ -n "${known_profiles// }" ]] || record_error 'no Workload Cell Profiles are defined'
 
-for environment in test nonprod prod; do
-  topology="$topology_dir/$environment.yaml"
+for environment in ${selected_environment:-test nonprod prod}; do
+  topology="$topology_dir/$environment/topology.yaml"
   adapter="$bootstrap_dir/$environment"
   rendered="$render_dir/$environment.yaml"
   rendered_again="$render_dir/$environment-again.yaml"
@@ -224,7 +239,7 @@ for environment in test nonprod prod; do
       select(.kind == strenv(KIND) and .metadata.name == strenv(NAME))
       | .metadata.annotations | keys | sort | join(",")
     ' "$rendered")" \
-    'argocd.argoproj.io/sync-wave,composition.artemis.apache.org/catalog-path,composition.artemis.apache.org/environment,composition.artemis.apache.org/git-revision,composition.artemis.apache.org/platform-namespace,composition.artemis.apache.org/repository'
+    'argocd.argoproj.io/sync-wave,composition.artemis.apache.org/catalog-path,composition.artemis.apache.org/environment,composition.artemis.apache.org/git-revision,composition.artemis.apache.org/overrides-repository,composition.artemis.apache.org/overrides-revision,composition.artemis.apache.org/platform-namespace,composition.artemis.apache.org/repository'
   assert_equal "cluster $environment operator sync wave" \
     "$(render_scalar "$rendered" Application "$operator" '.metadata.annotations."argocd.argoproj.io/sync-wave"')" -20
   assert_equal "cluster $environment ZooKeeper sync wave" \
@@ -258,7 +273,13 @@ for environment in test nonprod prod; do
   assert_equal "cluster $environment generator root-selected revision" \
     "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.generators[0].matrix.generators[0].git.revision')" "$revision"
   assert_equal "cluster $environment generated source root-selected revision" \
-    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.source.targetRevision')" "$revision"
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[0].targetRevision')" "$revision"
+
+  overrides_revision=$(render_scalar "$rendered" AppProject "$project" '.metadata.annotations."composition.artemis.apache.org/overrides-revision"')
+  [[ -n "$overrides_revision" && "$overrides_revision" != main && "$overrides_revision" != HEAD ]] || \
+    record_error "cluster $environment override revision must be selected independently"
+  assert_equal "cluster $environment override selected revision" \
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[1].targetRevision')" "$overrides_revision"
 
   repository=$(render_scalar "$rendered" AppProject "$project" '.metadata.annotations."composition.artemis.apache.org/repository"')
   assert_equal "cluster $environment project repository" \
@@ -270,7 +291,26 @@ for environment in test nonprod prod; do
   assert_equal "cluster $environment generator repository" \
     "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.generators[0].matrix.generators[0].git.repoURL')" "$repository"
   assert_equal "cluster $environment generated source repository" \
-    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.source.repoURL')" "$repository"
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[0].repoURL')" "$repository"
+  overrides_repository=$(render_scalar "$rendered" AppProject "$project" '.metadata.annotations."composition.artemis.apache.org/overrides-repository"')
+  [[ -n "$overrides_repository" && "$overrides_repository" != "$repository" ]] || \
+    record_error "cluster $environment overrides repository must be distinct"
+  assert_equal "cluster $environment exact override repository permission" \
+    "$(render_scalar "$rendered" AppProject "$project" '.spec.sourceRepos[1]')" "$overrides_repository"
+  assert_equal "cluster $environment override source repository" \
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[1].repoURL')" "$overrides_repository"
+  assert_equal "cluster $environment source repository count" \
+    "$(render_scalar "$rendered" AppProject "$project" '.spec.sourceRepos | length')" 2
+  assert_equal "cluster $environment Workload Cell source count" \
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources | length')" 2
+  assert_equal "cluster $environment values-only source alias" \
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[1].ref')" workloads
+  assert_equal "cluster $environment values-only source keys" \
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[1] | keys | sort | join(",")')" \
+    'ref,repoURL,targetRevision'
+  assert_equal "cluster $environment required external values Helm keys" \
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[0].helm | keys | sort | join(",")')" \
+    'parameters,valueFiles'
 
   assert_equal "cluster $environment operator path" \
     "$(render_scalar "$rendered" Application "$operator" '.spec.source.path')" \
@@ -285,7 +325,7 @@ for environment in test nonprod prod; do
     ' "$rendered")" 0
   assert_equal "cluster $environment workloads catalog path" \
     "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.generators[0].matrix.generators[0].git.files[0].path')" \
-    "gitops/argocd/topology/$environment.yaml"
+    "gitops/environments/$environment/topology.yaml"
   assert_equal "cluster $environment workloads catalog expansion" \
     "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.generators[0].matrix.generators[1].list.elementsYaml')" \
     '{{ .workloadCells | toJson }}'
@@ -298,14 +338,14 @@ for environment in test nonprod prod; do
   assert_equal "cluster $environment Workload Cell Application identity template" \
     "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.metadata.name')" '{{.workloadCellName}}-artemis'
   assert_equal "cluster $environment Workload Cell Profile values path" \
-    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.source.helm.valueFiles[0]')" \
-    '../../argocd/profiles/{{.profile}}/values.yaml'
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[0].helm.valueFiles[0]')" \
+    '../../profiles/{{.profile}}/values.yaml'
   assert_equal "cluster $environment environment integration values path" \
-    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.source.helm.valueFiles[1]')" \
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[0].helm.valueFiles[1]')" \
     '../../environments/{{.environment}}/artemis-values.yaml'
   assert_equal "cluster $environment Workload Cell values path" \
-    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.source.helm.valueFiles[2]')" \
-    '../../workloads/{{.environment}}/{{.workloadCellName}}/artemis-values.yaml'
+    "$(render_scalar "$rendered" ApplicationSet "$workloads" '.spec.template.spec.sources[0].helm.valueFiles[2]')" \
+    '$workloads/artemis/{{.environment}}/{{.workloadCellName}}/values.yaml'
   assert_equal "cluster $environment Workload Cell group identity template" \
     "$(parameter_value "$rendered" "$workloads" ha.groupName)" '{{.workloadCellName}}-group'
   assert_equal "cluster $environment Workload Cell Curator namespace template" \
@@ -418,15 +458,14 @@ for environment in test nonprod prod; do
       done < <(INDEX="$index" yq -r '.workloadCells[env(INDEX)].features | keys | .[]' "$topology" 2>/dev/null || true)
     fi
 
-    workload_values="$workload_dir/$environment/$cell/artemis-values.yaml"
+    workload_values="$overrides_root/artemis/$environment/$cell/values.yaml"
     if [[ ! -f "$workload_values" ]]; then
       cell_error "$environment" "$cell" workloadValues "missing required values file: $workload_values"
     else
-      while IFS= read -r leaf; do
-        [[ -n "$leaf" ]] || continue
-        [[ "$leaf" == services.brokerAlias || "$leaf" =~ ^acceptors\. || "$leaf" == authentication.jaasSecretName || "$leaf" =~ ^destinations\. || "$leaf" =~ ^authorization\.rules\. || "$leaf" =~ ^networkPolicy\.(clientSources|clientCidrs)\. ]] || \
-          cell_error "$environment" "$cell" "workloadValues.$leaf" 'must be a pair-owned listener, external identity Secret reference, destination, external authorization rule, or client network source'
-      done < <(yq -r '.. | select(tag != "!!map" and tag != "!!seq") | path | join(".")' "$workload_values")
+      if ! python3 "$script_dir/validate-workload-overrides.py" "$workload_values" \
+        --chart-schema "$chart_dir/values.schema.json"; then
+        cell_error "$environment" "$cell" workloadValues 'raw override violates platform-owned allowed fields'
+      fi
 
       if [[ -f "$profile_dir/$profile/values.yaml" && -f "$environment_dir/$environment/artemis-values.yaml" ]]; then
         if ! helm template "$cell-artemis" "$chart_dir" \
@@ -473,7 +512,9 @@ for environment in test nonprod prod; do
   distribution_json="$distribution_json\"$environment\":$cell_count"
 done
 
-assert_equal 'rendered cluster adapter count' "$cluster_count" 3
+expected_cluster_count=3
+[[ -z "$selected_environment" ]] || expected_cluster_count=1
+assert_equal 'rendered cluster adapter count' "$cluster_count" "$expected_cluster_count"
 
 if rg -n 'brokerPairs|brokerPairName|clusterServer|PLACEHOLDER_(TEST|NONPROD|PROD)_EKS_API_SERVER' \
     "$topology_dir" "$bootstrap_dir/base" >/dev/null; then
